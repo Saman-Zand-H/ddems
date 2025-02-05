@@ -1,11 +1,13 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi_users.schemas import BaseUserCreate, CreateUpdateDictModel
-from pydantic import EmailStr
+from fastapi_users.schemas import CreateUpdateDictModel
+from pydantic import ConfigDict, EmailStr
 
 
-class UserCreate(BaseUserCreate):
+class UserCreate(CreateUpdateDictModel):
+    email: EmailStr
+    password: str
     username: str
     first_name: str
     last_name: str
@@ -17,6 +19,8 @@ class UserRead(CreateUpdateDictModel):
     username: str
     first_name: str
     last_name: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserUpdate(CreateUpdateDictModel):

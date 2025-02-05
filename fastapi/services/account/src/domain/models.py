@@ -41,14 +41,14 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     group_names = relationship(
         "Group",
         secondary=user_group,
-        back_populates="users",
+        backref="users",
         cascade="all, delete",
         passive_deletes=True,
     )
     permission_names = relationship(
         "Permission",
         secondary=user_permission,
-        back_populates="users",
+        backref="users",
         cascade="all, delete",
         passive_deletes=True,
     )
@@ -66,14 +66,14 @@ class Group(Base):
     user_usernames = relationship(
         "User",
         secondary=user_group,
-        back_populates="groups",
+        backref="groups",
         cascade="all, delete",
         passive_deletes=True,
     )
     permission_names = relationship(
         "Permission",
         secondary=group_permission,
-        back_populates="groups",
+        backref="groups",
         cascade="all, delete",
         passive_deletes=True,
     )
@@ -92,14 +92,14 @@ class Permission(Base):
     users = relationship(
         "User",
         secondary=user_permission,
-        back_populates="permissions",
+        backref="permissions",
         cascade="all, delete",
         passive_deletes=True,
     )
     groups = relationship(
         "Group",
         secondary=group_permission,
-        back_populates="permissions",
+        backref="permissions",
         cascade="all, delete",
         passive_deletes=True,
     )
