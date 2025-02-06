@@ -38,17 +38,17 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     last_login = Column(DateTime(timezone=True), nullable=True)
     date_joined = Column(DateTime(timezone=True), server_default=func.now())
 
-    group_names = relationship(
+    groups = relationship(
         "Group",
         secondary=user_group,
-        backref="users",
+        back_populates="users",
         cascade="all, delete",
         passive_deletes=True,
     )
-    permission_names = relationship(
+    permissions = relationship(
         "Permission",
         secondary=user_permission,
-        backref="users",
+        back_populates="users",
         cascade="all, delete",
         passive_deletes=True,
     )
@@ -63,17 +63,17 @@ class Group(Base):
     name = Column(String(255), unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    user_usernames = relationship(
+    users = relationship(
         "User",
         secondary=user_group,
-        backref="groups",
+        back_populates="groups",
         cascade="all, delete",
         passive_deletes=True,
     )
-    permission_names = relationship(
+    permissions = relationship(
         "Permission",
         secondary=group_permission,
-        backref="groups",
+        back_populates="groups",
         cascade="all, delete",
         passive_deletes=True,
     )
@@ -92,14 +92,14 @@ class Permission(Base):
     users = relationship(
         "User",
         secondary=user_permission,
-        backref="permissions",
+        back_populates="permissions",
         cascade="all, delete",
         passive_deletes=True,
     )
     groups = relationship(
         "Group",
         secondary=group_permission,
-        backref="permissions",
+        back_populates="permissions",
         cascade="all, delete",
         passive_deletes=True,
     )

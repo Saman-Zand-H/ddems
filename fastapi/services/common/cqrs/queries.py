@@ -1,38 +1,57 @@
 from abc import ABC
-from typing import Generic, Type
+from typing import Generic, Type, TypeVar
 
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from unit_of_work import AbstractBaseUnitOfWork
 
 
-class Query(ABC):
+class Query(BaseModel):
     pass
 
 
-class QueryHandler[Q: Query, R: BaseModel](ABC, Generic[Q, R]):
-    def handle(self, query: Q) -> R:
+Q = TypeVar("Q", bound=Query)
+R = TypeVar("R")
+
+
+class QueryHandler(ABC, Generic[Q, R]):
+    def __init__(self, uow: AbstractBaseUnitOfWork):
+        self.uow = uow
+
+    async def handle(self, query: Q, session: AsyncSession) -> R:
         raise NotImplementedError
 
+    async def execute(self, query: Q) -> R:
+        async with self.uow.get_transaction() as session:
+            return await self.handle(query, session)
 
-class QueryRegistry:
+
+class QueryRegistry(Generic[Q, R]):
     def __init__(self):
         self._handlers = {}
 
-    def register[
-        Q: Query, QH: QueryHandler
-    ](self, query: Type[Q], query_handler: Type[QH] | None = None) -> Type[QH]:
+    def get_all(self):
+        return self._handlers
+
+    def register(
+        self,
+        query: Type[Q],
+        query_handler: Type[QueryHandler] | None = None,
+    ) -> Type[QueryHandler]:
+
         if query_handler:
             self._handlers[query] = query_handler
             return query_handler
 
-        def wrapper(handler: Type[QH]):
+        def wrapper(handler: Type[QueryHandler]):
             self._handlers[query] = handler
             return handler
 
         return wrapper
 
-    def get_handler[Q: Query](self, query_type: Type[Q]) -> Type[QueryHandler]:
+    def get_handler(self, query_type: Type[Q]) -> Type[QueryHandler]:
         return self._handlers[query_type]
 
-    def handle[Q: Query, R: BaseModel](self, query: Q, **kwargs) -> R:
+    async def handle(self, query: Q, **kwargs) -> R:
         handler = self.get_handler(type(query))
-        return handler(**kwargs).handle(query)
+        return await handler(**kwargs).execute(query)

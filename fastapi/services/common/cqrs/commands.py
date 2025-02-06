@@ -1,16 +1,29 @@
 from abc import ABC
-from typing import Generic, Type
+from typing import Generic, Type, TypeVar
 
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from unit_of_work import AbstractBaseUnitOfWork
 
 
-class Command(ABC):
+class Command(BaseModel):
     pass
 
 
-class CommandHandler[C: Command](ABC, Generic[C]):
-    def handle(self, command: C) -> None:
+C = TypeVar("C", bound=Command)
+
+
+class CommandHandler(ABC, Generic[C]):
+
+    def __init__(self, uow: AbstractBaseUnitOfWork):
+        self.uow = uow
+
+    async def handle(self, command: C, session: AsyncSession) -> None:
         raise NotImplementedError
+
+    async def execute(self, command: C) -> None:
+        async with self.uow.get_transaction() as session:
+            return await self.handle(command, session)
 
 
 class CommandRegistry:
@@ -33,6 +46,6 @@ class CommandRegistry:
     def get_handler[C: Command](self, command: Type[C]) -> Type[CommandHandler]:
         return self._handlers[command]
 
-    def handle[C: Command, R: BaseModel](self, command: C, **kwargs) -> R:
+    async def handle[C: Command, R: BaseModel](self, command: C, **kwargs) -> R:
         handler = self.get_handler(type(command))
-        return handler(**kwargs).handle(command)
+        return await handler(**kwargs).execute(command)
