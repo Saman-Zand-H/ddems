@@ -29,7 +29,7 @@ class Message(Base):
     __tablename__ = "message"
 
     id = sa.Column(sa.Integer, primary_key=True)
-    message = sa.Column(sa.Text, nullable=False)
+    message = sa.Column(sa.Text, nullable=False, default="")
     role = sa.Column(
         sa.Enum(Role),
         nullable=False,

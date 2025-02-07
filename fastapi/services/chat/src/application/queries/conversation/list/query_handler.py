@@ -15,6 +15,6 @@ class ListConversationsQueryHandler(QueryHandler[ListConversationsQuery, Convers
         session,
     ) -> List[Conversation]:
         stmt = select(Conversation)
-        if query.user:
-            stmt = stmt.where(Conversation.user_id == query.user)
+        if query.user_id:
+            stmt = stmt.where(Conversation.user_id == query.user_id)
         return list(await session.execute(stmt))

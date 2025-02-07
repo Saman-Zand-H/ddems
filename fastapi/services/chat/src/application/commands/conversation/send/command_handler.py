@@ -3,11 +3,11 @@ from src.application import CommandHandler, command_reg
 from src.domain.choices import MessageStatus
 from src.domain.models import Message
 
-from .command import UserSendCommand
+from .command import SendCommand
 
 
-@command_reg(UserSendCommand)
-class UserSendCommandHandler(CommandHandler[UserSendCommand, Message]):
+@command_reg(SendCommand)
+class SendCommandHandler(CommandHandler[SendCommand, Message]):
     async def handle(
         self,
         command,

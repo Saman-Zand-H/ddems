@@ -5,4 +5,4 @@ from src.application import Query
 
 
 class ListConversationsQuery(Query):
-    user: Optional[UUID] = None
+    user_id: Optional[UUID] = None

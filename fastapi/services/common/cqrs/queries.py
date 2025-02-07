@@ -1,6 +1,7 @@
 from abc import ABC
-from typing import Generic, Type, TypeVar
+from typing import Generic, Optional, Type, TypeVar
 
+from fastapi_pagination import Params as PagePaginateParams
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from unit_of_work import AbstractBaseUnitOfWork
@@ -8,6 +9,10 @@ from unit_of_work import AbstractBaseUnitOfWork
 
 class Query(BaseModel):
     pass
+
+
+class PaginatedQuery(PagePaginateParams, BaseModel):
+    order_by: Optional[str] = None
 
 
 Q = TypeVar("Q", bound=Query)

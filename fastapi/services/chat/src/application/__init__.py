@@ -4,6 +4,7 @@ from cqrs.commands import (
     CommandRegistry,
 )
 from cqrs.queries import (
+    PaginatedQuery,
     Query,
     QueryHandler,
     QueryRegistry,
@@ -15,6 +16,7 @@ command_reg = CommandRegistry()
 __all__ = [
     "Command",
     "Query",
+    "PaginatedQuery",
     "CommandHandler",
     "QueryHandler",
     "query_reg",
