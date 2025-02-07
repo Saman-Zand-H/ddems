@@ -7,7 +7,7 @@ from src.interfaces.dependencies import (
     get_user_db,
     get_user_manager,
 )
-from src.interfaces.endpoints import router
+from src.interfaces.api import router
 
 from fastapi import Depends, FastAPI
 
