@@ -3,6 +3,7 @@ import uuid
 from threading import Lock
 from typing import Annotated
 
+from config import settings
 from cqrs.commands import CommandRegistry
 from cqrs.queries import QueryRegistry
 from fastapi_pagination import Page
@@ -22,6 +23,7 @@ from src.application.commands.conversation.delete.command import (
 )
 from src.application.commands.conversation.init.command import InitConversationCommand
 from src.application.commands.conversation.send.command import SendCommand
+from src.application.commands.message.append.command import MessageAppendCommand
 from src.application.commands.message.feedback.command import (
     ConversationFeedbackCommand,
 )
@@ -41,13 +43,13 @@ from src.interfaces.dependencies import (
 
 from .schemas import FeedbackMessage, SendMessage
 
-app = APIRouter(prefix="conversation/")
+router = APIRouter(prefix="conversation/")
 
 
 conversation_lock = Lock()
 
 
-@app.get("{conversation_id}/message/receive")
+@router.get("{conversation_id}/receive")
 async def start_conversation(
     conversation_id: Annotated[uuid.UUID, Path],
     command_reg: Annotated[CommandRegistry, Depends(get_command_registry)],
@@ -68,27 +70,35 @@ async def start_conversation(
                 )
 
                 if not msgs.items:
-                    ...
+                    raise asyncio.CancelledError()
 
                 if (
                     (latest_msg := msgs.items[0]).role == Role.USER
                     or latest_msg.status == MessageStatus.IN_PROGRESS.value
                 ):
-                    ...
+                    raise asyncio.CancelledError()
 
                 try:
-                    async for chunk in receive_response("hi"):
+                    async for chunk in receive_response(latest_msg.message):
                         yield chunk
+
+                    await command_reg.handle(
+                        MessageAppendCommand(
+                            message_id=latest_msg.id,
+                            message=chunk,
+                        ),
+                        uow=uow,
+                    )
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
                     raise HTTPException(status_code=500, detail=str(e))
-            await asyncio.sleep(1)
+            await asyncio.sleep(settings.CHAT_SSE_INTERVAL)
 
     return EventSourceResponse(event_generator(conversation_id))
 
 
-@app.post("")
+@router.post("")
 async def init_conversation(
     body: Annotated[InitConversationCommand, Body],
     command_reg: Annotated[CommandRegistry, Depends(get_command_registry)],
@@ -97,7 +107,7 @@ async def init_conversation(
     return await command_reg.handle(body, uow=uow)
 
 
-@app.get("")
+@router.get("")
 def list_conversations(
     query_reg: Annotated[QueryRegistry, Depends(get_query_registry)],
     uow: Annotated[UnitOfWork, Depends(get_uow)],
@@ -105,7 +115,7 @@ def list_conversations(
     return query_reg.handle(ListConversationsQuery(), uow=uow)
 
 
-@app.get("{conversation_id}")
+@router.get("{conversation_id}")
 def get_conversation(
     conversation_id: Annotated[uuid.UUID, Path],
     query_reg: Annotated[QueryRegistry, Depends(get_query_registry)],
@@ -117,7 +127,7 @@ def get_conversation(
     )
 
 
-@app.post("{message_id}/feedback")
+@router.post("{message_id}/feedback")
 async def conversation_feedback(
     message_id: Annotated[uuid.UUID, Path],
     body: Annotated[FeedbackMessage, Body],
@@ -134,7 +144,7 @@ async def conversation_feedback(
     return Response()
 
 
-@app.post("{conversation_id}")
+@router.post("{conversation_id}")
 async def send_message(
     conversation_id: Annotated[uuid.UUID, Path],
     message: Annotated[SendMessage, Body()],
@@ -152,7 +162,7 @@ async def send_message(
     return Response(status_code=status.HTTP_201_CREATED)
 
 
-@app.delete("{conversation_id}")
+@router.delete("{conversation_id}")
 async def delete_conversation(
     conversation_id: Annotated[uuid.UUID, Path],
     command_reg: Annotated[CommandRegistry, Depends(get_command_registry)],
