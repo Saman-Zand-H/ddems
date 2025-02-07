@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from threading import Lock
-from typing import Annotated
+from typing import Annotated, List
 
 from config import settings
 from cqrs.commands import CommandRegistry
@@ -33,7 +33,7 @@ from src.application.queries.conversation.messages.query import (
 )
 from src.application.sse.chat.handler import receive_response
 from src.domain.choices import MessageStatus, Role
-from src.domain.models import Message
+from src.domain.models import Conversation, Message
 from src.infrastructure.db.unit_of_work import UnitOfWork
 from src.interfaces.dependencies import (
     get_command_registry,
@@ -41,7 +41,13 @@ from src.interfaces.dependencies import (
     get_uow,
 )
 
-from .schemas import FeedbackMessage, SendMessage
+from .schemas import (
+    ConversationCreated,
+    ConversationList,
+    FeedbackMessage,
+    MessageList,
+    SendMessage,
+)
 
 router = APIRouter(prefix="conversation/")
 
@@ -103,28 +109,36 @@ async def init_conversation(
     body: Annotated[InitConversationCommand, Body],
     command_reg: Annotated[CommandRegistry, Depends(get_command_registry)],
     uow: Annotated[UnitOfWork, Depends(get_uow)],
-):
-    return await command_reg.handle(body, uow=uow)
+) -> ConversationCreated:
+    response: Conversation = await command_reg.handle(body, uow=uow)
+    return Response(
+        status_code=status.HTTP_201_CREATED,
+        content=ConversationCreated(id=response.id),
+    )
 
 
 @router.get("")
-def list_conversations(
+async def list_conversations(
     query_reg: Annotated[QueryRegistry, Depends(get_query_registry)],
     uow: Annotated[UnitOfWork, Depends(get_uow)],
-):
-    return query_reg.handle(ListConversationsQuery(), uow=uow)
+) -> ConversationList:
+    responses: List[Conversation] = await query_reg.handle(
+        ListConversationsQuery(), uow=uow
+    )
+    return ConversationList(responses)
 
 
 @router.get("{conversation_id}")
-def get_conversation(
+async def get_conversation(
     conversation_id: Annotated[uuid.UUID, Path],
     query_reg: Annotated[QueryRegistry, Depends(get_query_registry)],
     uow: Annotated[UnitOfWork, Depends(get_uow)],
-):
-    return query_reg.handle(
+) -> MessageList:
+    results: List[Message] = await query_reg.handle(
         QueryMessagesByConversationId(conversation_id=conversation_id),
         uow=uow,
     )
+    return MessageList(results.items)
 
 
 @router.post("{message_id}/feedback")

@@ -14,7 +14,7 @@ class Base(DeclarativeBase):
 class Conversation(Base):
     __tablename__ = "conversations"
 
-    uuid = sa.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = sa.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     title = sa.Column(
         sa.String(255),
         unique=True,
