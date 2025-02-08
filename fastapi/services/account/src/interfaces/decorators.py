@@ -1,21 +1,32 @@
 from functools import wraps
 from typing import Annotated, Any, Callable
 
-from fastapi import Depends, HTTPException, status
-from src.domain.models import User
+from config import settings
+from user_schema import StoredUser
 
-from .users import fastapi_users
+from fastapi import Depends, HTTPException, status
+from fastapi.security import APIKeyCookie
+
+from .dependencies import user_getter
+
+auth_cookie = APIKeyCookie(name=settings.JWT_COOKIE_NAME)
 
 
 def login_required(func: Callable[..., Any]):
     @wraps(func)
     def wrapper(
         user: Annotated[
-            User, Depends(fastapi_users.current_user(optional=True, active=True))
+            StoredUser | None, Depends(user_getter(suppress_exception=True))
         ],
         *args,
-        **kwargs
+        **kwargs,
     ):
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No token provided",
+            )
+
         kwargs.update(user=user)
         return func(*args, **kwargs)
 
@@ -25,12 +36,16 @@ def login_required(func: Callable[..., Any]):
 def superuser_only(func: Callable[..., Any]):
     @wraps(func)
     def wrapper(
-        user: Annotated[
-            User, Depends(fastapi_users.current_user(superuser=True, active=True))
-        ],
+        user: Annotated[StoredUser, Depends(user_getter())],
         *args,
-        **kwargs
+        **kwargs,
     ):
+        if not user.is_superuser:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not have permission to perform this action",
+            )
+
         kwargs.update(user=user)
         return func(*args, **kwargs)
 
@@ -40,28 +55,32 @@ def superuser_only(func: Callable[..., Any]):
 def verified_only(func: Callable[..., Any]):
     @wraps(func)
     def wrapper(
-        user: Annotated[
-            User, Depends(fastapi_users.current_user(verified=True, active=True))
-        ],
+        user: Annotated[StoredUser, Depends(user_getter())],
         *args,
-        **kwargs
+        **kwargs,
     ):
+        if not user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not have permission to perform this action",
+            )
+
         kwargs.update(user=user)
         return func(*args, **kwargs)
 
     return wrapper
 
 
-def user_passes_test(test_func: Callable[[User], bool]):
+def user_passes_test(test_func: Callable[[StoredUser], bool]):
     def decorator(func: Callable[..., Any]):
         @wraps(func)
         def wrapper(
             user: Annotated[
-                User,
-                Depends(fastapi_users.current_user(optional=True, active=True)),
+                StoredUser,
+                Depends(user_getter()),
             ],
             *args,
-            **kwargs
+            **kwargs,
         ):
             if not test_func(user):
                 raise HTTPException(

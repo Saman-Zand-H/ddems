@@ -1,12 +1,19 @@
-from fastapi_users.db import SQLAlchemyUserDatabase
-from sqlalchemy.ext.asyncio import AsyncSession
+from auth_dependency import VerifyToken
+from config import settings
 
-from fastapi import Depends
+from fastapi import Security
+from fastapi.security import APIKeyCookie
 from src.application import command_reg, query_reg
-from src.domain.models import User
-from src.infrastructure.auth.user_manager import UserManager
-from src.infrastructure.db.connection import get_async_session_generator
 from src.infrastructure.db.unit_of_work import UnitOfWork
+
+auth_schema = APIKeyCookie(name=settings.JWT_COOKIE_NAME)
+
+
+def verify_token(*scopes):
+    def verify_token_decorator(token: str = Security(auth_schema)):
+        return VerifyToken(settings).with_scopes(*scopes).verify(token)
+
+    return verify_token_decorator
 
 
 async def get_uow():
@@ -14,17 +21,9 @@ async def get_uow():
         yield uow
 
 
-async def get_user_db(session: AsyncSession = Depends(get_async_session_generator)):
-    yield SQLAlchemyUserDatabase(session, User)
-
-
-def get_user_manager(user_db=Depends(get_user_db)):
-    yield UserManager(user_db)
-
-
-def get_query_registry():
+async def get_query_registry():
     return query_reg
 
 
-def get_command_registry():
+async def get_command_registry():
     return command_reg
